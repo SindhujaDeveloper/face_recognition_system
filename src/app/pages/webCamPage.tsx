@@ -1,145 +1,9 @@
-// import React, { useEffect, useState, useRef } from "react";
-// import { Button } from "react-bootstrap";
-// import * as faceapi from "face-api.js";
-
-// const WebCamPage = () => {
-//   const [isOpen, setIsOpen] = useState(false);
-//   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-//   const totalCaptureTime = 5000; // 5 minutes in milliseconds
-//   const [capturing, setCapturing] = useState(false);
-
-//   const MODEL_URL = "/models";
-
-//   const loadModels = async () => {
-//     await faceapi.loadSsdMobilenetv1Model(MODEL_URL);
-//     await faceapi.loadFaceLandmarkModel(MODEL_URL);
-//     await faceapi.loadFaceRecognitionModel(MODEL_URL);
-//   };
-
-//   useEffect(() => {
-//     loadModels();
-//   }, []);
-
-//   const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-//     const imgFile = e.target.files?.[0];
-//     if (imgFile) {
-//       const img = await faceapi.bufferToImage(imgFile);
-//       const imageTag = document.getElementById("myImg") as HTMLImageElement;
-//       if (imageTag) {
-//         imageTag.src = img.src;
-//       }
-//       if (canvasRef.current && imageTag.src !== "") {
-//         const canvas = canvasRef.current;
-//         const detections = await faceapi
-//           .detectAllFaces(img)
-//           .withFaceLandmarks();
-//         console.log(detections, "detections");
-//         const displaySize = { width: img.width, height: img.height };
-//         faceapi.matchDimensions(canvas, img, true);
-
-//         faceapi.draw.drawDetections(canvas, detections);
-//         faceapi.draw.drawFaceLandmarks(canvas, detections);
-//       }
-//     }
-//   };
-
-//   const captureImage = async () => {
-//     const videoElement = document.createElement("video");
-//     const constraints = { video: true };
-//     try {
-//       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-//       videoElement.srcObject = stream;
-//       await videoElement.play();
-
-//       const canvas = canvasRef.current;
-//       if (canvas) {
-//         await new Promise((resolve) => setTimeout(resolve, 1000));
-
-//         const context = canvas.getContext("2d");
-//         canvas.width = videoElement.videoWidth;
-//         canvas.height = videoElement.videoHeight;
-//         context?.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-//         stream.getTracks().forEach((track) => track.stop());
-//       }
-//     } catch (error) {
-//       console.error("Error capturing image:", error);
-//     }
-//   };
-
-//   const startCapturing = () => {
-//     if (!capturing) {
-//       setCapturing(true);
-//       captureImage();
-//       setTimeout(stopCapturing, totalCaptureTime);
-//     }
-//   };
-
-//   const stopCapturing = () => {
-//     setCapturing(false);
-//   };
-
-//   return (
-//     <div style={{ display: "flex", flexDirection: "row" }}>
-//       <div style={{ width: "200px", height: "350px" }}>hi</div>
-//       <div>
-//         <img id="myImg" src="" alt="image for face recognition" />
-//         <canvas
-//           ref={canvasRef}
-//           id="valid-canvas"
-//           style={{
-//             position: "absolute",
-//             top: 0,
-//             left: "200px",
-//           }}
-//         />
-//       </div>
-
-//       <input
-//         id="myFileUpload"
-//         type="file"
-//         onChange={(e) => {
-//           if (
-//             faceapi.nets.ssdMobilenetv1.params &&
-//             faceapi.nets.faceLandmark68Net.params &&
-//             faceapi.nets.faceRecognitionNet.params
-//           ) {
-//             uploadImage(e);
-//           }
-//         }}
-//         accept=".jpg, .jpeg, .png"
-//       />
-//       <Button
-//         variant="danger"
-//         onClick={() => setIsOpen(!isOpen)}
-//         style={{ height: "50px" }}
-//       >
-//         {`${isOpen ? "Close" : "Open"} Web Cam`}
-//       </Button>
-//       <Button
-//         variant="danger"
-//         onClick={startCapturing}
-//         style={{ height: "50px" }}
-//       >
-//         Start Capturing
-//       </Button>
-//       <Button
-//         variant="danger"
-//         onClick={stopCapturing}
-//         style={{ height: "50px" }}
-//       >
-//         Stop Capturing
-//       </Button>
-//     </div>
-//   );
-// };
-
-// export default WebCamPage;
-
 import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 
 const WebCamPage = () => {
+  const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [faces, setFaces] = useState<{ detection: faceapi.FaceDetection }[]>(
     []
   );
@@ -164,16 +28,21 @@ const WebCamPage = () => {
 
   const handleImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    imageName: string
+    type: string
   ) => {
-    setFaces([]);
-    setFilteredFaces([]);
-    // canvas.width = 0;
-    // canvas.height = 0;
-    const imgFile = e.target.files?.[0];
-    if (imgFile) {
-      const img = await faceapi.bufferToImage(imgFile);
-      const imageTag = document.getElementById(imageName) as HTMLImageElement;
+    const uploadedFiles = e.target.files;
+    if (uploadedFiles && type === "original") {
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const imgFile = uploadedFiles[i];
+
+        if (imgFile) {
+          const img = await faceapi.bufferToImage(imgFile);
+          setImages([...images, img]);
+        }
+      }
+    } else if (uploadedFiles && type === "compare") {
+      const img = await faceapi.bufferToImage(uploadedFiles?.[0]);
+      const imageTag = document.getElementById(type) as HTMLImageElement;
       if (imageTag) {
         imageTag.src = img.src;
       }
@@ -288,6 +157,7 @@ const WebCamPage = () => {
     }
   };
 
+  console.log(document.getElementById("original"));
   return (
     <Container style={{ textAlign: "center" }}>
       <h4>Original Image</h4>
@@ -296,6 +166,7 @@ const WebCamPage = () => {
         <input
           type="file"
           name="image"
+          multiple
           id="image"
           ref={originalInputRef}
           className="d-none"
@@ -313,9 +184,16 @@ const WebCamPage = () => {
           Upload
         </button>
       </div>
-      <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-        <img ref={originalFaceRef} id="original" src="" />
-      </div>
+      {images.map((it, index) => {
+        return (
+          <div
+            key={`${it.localName}_${index}`}
+            style={{ marginTop: "30px", marginBottom: "30px" }}
+          >
+            <img ref={originalFaceRef} id="original" src={it.src} />
+          </div>
+        );
+      })}
       <h4>Compare Image</h4>
       <div className="m-3">
         <label className="mx-3">Choose file: </label>
