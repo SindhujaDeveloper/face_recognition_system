@@ -1,4 +1,13 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {}
 
-module.exports = nextConfig
+module.exports = {
+    // Other config options
+    async rewrites() {
+      return [
+        {
+          source: '/models/:path*',
+          destination: '/models/:path*',
+        },
+      ];
+    },
+  };
