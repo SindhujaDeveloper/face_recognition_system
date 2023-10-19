@@ -1,23 +1,40 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 
 const WebCamPage = () => {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
+  const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
+  const [count, setCount] = useState(0);
+  const [comparedSrc, setComparedSrc] = useState<HTMLImageElement | null>(null);
   const [faces, setFaces] = useState<{ detection: faceapi.FaceDetection }[]>(
     []
   );
   const [message, setMessage] = useState("");
-  const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
+  const [filteredFaces, setFilteredFaces] = useState<
+    { detection: faceapi.FaceDetection }[]
+  >([]);
+  const [originalImagesWithDescriptors, setOriginalImagesWithDescriptors] =
+    useState<
+      {
+        image: HTMLImageElement;
+        descriptor: faceapi.WithFaceDescriptor<
+          faceapi.WithFaceLandmarks<
+            { detection: faceapi.FaceDetection },
+            faceapi.FaceLandmarks68
+          >
+        >;
+      }[]
+    >([]);
+
   const [isDisabledFirst, setIsDisabledFirst] = useState(true);
   const [isDisabledSecond, setIsDisabledSecond] = useState(true);
 
-  const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-
-  const originalFaceRef = useRef(null);
-  const comparedFaceRef = useRef(null);
-  const originalInputRef = useRef<HTMLInputElement>(null);
-  const compareInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const originalFaceRef = useRef<HTMLImageElement | null>(null);
+  const compareFaceRef = useRef<HTMLImageElement | null>(null);
+  const originalInputRef = useRef<HTMLInputElement | null>(null);
+  const compareInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleUpload = (refTemp: string) => {
     (refTemp === "original"
@@ -31,26 +48,56 @@ const WebCamPage = () => {
     type: string
   ) => {
     const uploadedFiles = e.target.files;
-    if (uploadedFiles && type === "original") {
+    if (uploadedFiles) {
       for (let i = 0; i < uploadedFiles.length; i++) {
-        const imgFile = uploadedFiles[i];
+        const imgFile =
+          type === "compare" ? uploadedFiles[0] : uploadedFiles[i];
 
         if (imgFile) {
           const img = await faceapi.bufferToImage(imgFile);
-          setImages([...images, img]);
+          if (type === "original") {
+            const descriptor = await faceapi
+              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+              .withFaceLandmarks()
+              .withFaceDescriptor();
+
+            if (descriptor) {
+              setOriginalImagesWithDescriptors([
+                ...originalImagesWithDescriptors,
+                { image: img, descriptor },
+              ]);
+            }
+
+            setOriginalImages((prevImages) => [...prevImages, img]);
+          } else {
+            setImages([img]);
+          }
         }
-      }
-    } else if (uploadedFiles && type === "compare") {
-      const img = await faceapi.bufferToImage(uploadedFiles?.[0]);
-      const imageTag = document.getElementById(type) as HTMLImageElement;
-      if (imageTag) {
-        imageTag.src = img.src;
       }
     }
   };
 
+  // const handleImageLoad = (imageRef: { current: any }, type: string) => {
+  //   const imageElement = imageRef.current;
+  //   if (imageElement && canvasRef.current) {
+  //     canvasRef.current.width = 0;
+  //     canvasRef.current.height = 0;
+
+  //      handleFaceDetection(imageElement, type === "compare");
+  //   }
+  // };
+
+  useEffect(() => {
+    const loadModels = async () => {
+      await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+      await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
+      await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
+    };
+    loadModels();
+  }, []);
+
   const handleFaceDetection = async (
-    imageName: string,
+    imageElement: HTMLImageElement | null,
     isCompare?: boolean,
     faceToDraw?: faceapi.WithFaceDescriptor<
       faceapi.WithFaceLandmarks<
@@ -61,13 +108,8 @@ const WebCamPage = () => {
       >
     >[]
   ) => {
-    const imageElement = document.getElementById(imageName) as HTMLImageElement;
-
+    const canvas = canvasRef.current;
     if (canvas && imageElement) {
-      await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-      await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
-      await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
-
       canvas.width = imageElement.width;
       canvas.height = imageElement.height;
 
@@ -78,20 +120,20 @@ const WebCamPage = () => {
           inputSize: 512,
           scoreThreshold: 0.5,
         });
-        const faces = await faceapi
+        const detectedFaces = await faceapi
           .detectAllFaces(canvas, faceDetector)
           .withFaceLandmarks()
           .withFaceDescriptors();
-        setFaces(faces);
+        setFaces([...faces, ...detectedFaces]);
 
-        if (faces.length) {
+        if (detectedFaces.length) {
           if (!isCompare) {
             faceapi.draw.drawFaceLandmarks(
               canvas,
-              faceToDraw ? faceToDraw : faces
+              faceToDraw ? faceToDraw : detectedFaces
             );
           } else {
-            return faces;
+            return detectedFaces;
           }
         } else {
           canvas.width = 0;
@@ -99,7 +141,7 @@ const WebCamPage = () => {
           setMessage("There is no face detected");
         }
       } else {
-        setMessage("image element not completed");
+        setMessage("Image element not completed");
       }
     } else {
       console.error("Canvas or image element not found");
@@ -107,59 +149,107 @@ const WebCamPage = () => {
   };
 
   const handleCompareTwoFaces = async () => {
-    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-    await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
-    await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
-
-    const faces = await handleFaceDetection("original", true);
-
-    if (originalFaceRef.current && comparedFaceRef.current) {
-      // const originalFace = await faceapi
-      //   .detectSingleFace(
-      //     originalFaceRef.current,
-      //     new faceapi.TinyFaceDetectorOptions()
-      //   )
-      //   .withFaceLandmarks()
-      //   .withFaceDescriptor();
-
+    if (compareFaceRef?.current) {
       const comparedFace = await faceapi
         .detectSingleFace(
-          comparedFaceRef.current,
+          compareFaceRef.current,
           new faceapi.TinyFaceDetectorOptions()
         )
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-      if (faces && comparedFace) {
-        return faces?.map((it: any) => {
+      if (
+        originalFaceRef.current &&
+        comparedFace &&
+        originalImagesWithDescriptors.length > 0
+      ) {
+        let minDistance = Infinity;
+        let matchedOriginal: any;
+
+        originalImagesWithDescriptors.forEach((original: any) => {
           const distance = faceapi.euclideanDistance(
-            it?.descriptor,
+            original.descriptor.descriptor,
             comparedFace.descriptor
           );
-          let dummy = "";
           if (distance <= 0.5) {
-            console.log("Match");
-            handleFaceDetection("original", false, it);
-            setFilteredFaces([...filteredFaces, it]);
-            dummy = "Find A Match";
-          } else {
-            setFaces([]);
-            canvas.width = 0;
-            canvas.height = 0;
-            if (dummy !== "Find A Match") {
-              dummy = "There is no match";
+            if (distance < minDistance) {
+              minDistance = distance;
+              matchedOriginal = original;
             }
-            return faces;
           }
-          setMessage(dummy);
         });
+        console.log(minDistance, "minDistance",compareFaceRef.current);
+        setCount(originalImages.length);
+        setComparedSrc(compareFaceRef.current);
+        if (matchedOriginal) {
+          handleFaceDetection(matchedOriginal.image, false);
+          setFilteredFaces([matchedOriginal.descriptor]);
+          setMessage("Find A Match");
+        } else {
+          if (canvasRef.current) {
+            setFilteredFaces([]);
+            setMessage("");
+            canvasRef.current.width = 0;
+            canvasRef.current.height = 0;
+          }
+          if (message !== "Find A Match") {
+            setMessage("There is no match");
+          }
+        }
       }
     }
   };
 
-  console.log(document.getElementById("original"));
+  console.log(
+    comparedSrc?.src === compareFaceRef.current?.src,
+    "comparedSrc",
+    count !== originalImages.length,
+    compareFaceRef.current,
+    comparedSrc,
+    filteredFaces,
+    "filteredFaces"
+  );
   return (
     <Container style={{ textAlign: "center" }}>
+      <h4>Compare Image</h4>
+      <div className="m-3">
+        <label className="mx-3">Choose file: </label>
+        <input
+          type="file"
+          name="image"
+          id="image1"
+          ref={compareInputRef}
+          className="d-none"
+          style={{ marginTop: "30px" }}
+          accept=".jpg,.png,.jpeg"
+          multiple={false}
+          onChange={(e) => {
+            handleImageUpload(e, "compare");
+            setIsDisabledSecond(false);
+          }}
+        />
+        <button
+          onClick={() => handleUpload("compare")}
+          className="btn btn-outline-primary"
+        >
+          Upload
+        </button>
+      </div>
+      {images.map((img, index) => (
+        <div
+          key={`${img.src}_${index}`}
+          style={{ marginTop: "30px", marginBottom: "30px" }}
+        >
+          <img
+            ref={compareFaceRef}
+            id={`compare_${index}`}
+            src={img.src}
+            alt={`compare_${index}`}
+            // onLoad={() => handleImageLoad(compareFaceRef, "compare")}
+          />
+        </div>
+      ))}
+
       <h4>Original Image</h4>
       <div className="m-3">
         <label className="mx-3">Choose file: </label>
@@ -184,60 +274,49 @@ const WebCamPage = () => {
           Upload
         </button>
       </div>
-      {images.map((it, index) => {
-        return (
-          <div
-            key={`${it.localName}_${index}`}
-            style={{ marginTop: "30px", marginBottom: "30px" }}
-          >
-            <img ref={originalFaceRef} id="original" src={it.src} />
-          </div>
-        );
-      })}
-      <h4>Compare Image</h4>
-      <div className="m-3">
-        <label className="mx-3">Choose file: </label>
-        <input
-          type="file"
-          name="image"
-          id="image1"
-          ref={compareInputRef}
-          className="d-none"
-          style={{ marginTop: "30px" }}
-          accept=".jpg,.png,.jpeg"
-          onChange={(e: any) => {
-            handleImageUpload(e, "compare");
-            setIsDisabledSecond(false);
-          }}
-        />
-        <button
-          onClick={() => handleUpload("compare")}
-          className="btn btn-outline-primary"
+      {originalImages.map((img, index) => (
+        <div
+          key={`${img.src}_${index}`}
+          style={{ marginTop: "30px", marginBottom: "30px" }}
         >
-          Upload
-        </button>
-      </div>
+          <img
+            ref={originalFaceRef}
+            id={`original_${index}`}
+            src={img.src}
+            alt={`original_${index}`}
+            // onLoad={() => handleImageLoad(originalFaceRef, "original")}
+          />
+        </div>
+      ))}
 
       <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-        <img ref={comparedFaceRef} id="compare" src="" />
+        <img
+          ref={compareFaceRef}
+          id="compare"
+          src=""
+          onLoad={() => handleFaceDetection(compareFaceRef.current)}
+        />
       </div>
-      <Button
-        variant="danger"
-        style={{ marginLeft: "20px", marginTop: "20px" }}
-        disabled={isDisabledFirst || isDisabledSecond}
-        onClick={() => handleFaceDetection("com")}
-      >
-        Detect All Faces
-      </Button>
       <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
         disabled={
-          filteredFaces.length > 0 || isDisabledFirst || isDisabledSecond
+          // count === originalImages.length ||
+          comparedSrc?.src === compareFaceRef.current?.src ||
+          isDisabledFirst ||
+          isDisabledSecond
         }
-        onClick={() => handleCompareTwoFaces()}
+        onClick={handleCompareTwoFaces}
       >
         Compare Two Faces
+      </Button>
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        disabled={isDisabledFirst || isDisabledSecond}
+        onClick={() => handleFaceDetection(compareFaceRef.current)}
+      >
+        Detect All Faces
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
@@ -248,12 +327,13 @@ const WebCamPage = () => {
               <p>Y: {face?.detection.box.y}</p>
               <p>Width: {face?.detection.box.width}</p>
               <p>Height: {face?.detection.box.height}</p>
+              <p>Expression: {}</p>
             </div>
           ))}
         </div>
       )}
       <h4>{message}</h4>
-      <canvas id="canvas" />
+      <canvas ref={canvasRef} />
     </Container>
   );
 };
