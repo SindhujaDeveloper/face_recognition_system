@@ -2,31 +2,42 @@ import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 
+interface FaceWithDescriptor {
+  image: HTMLImageElement;
+  descriptor: faceapi.WithFaceDescriptor<
+    faceapi.WithFaceLandmarks<
+      { detection: faceapi.FaceDetection },
+      faceapi.FaceLandmarks68
+    >
+  >;
+}
+
+type FaceExpressions = {
+  neutral: number;
+  happy: number;
+  sad: number;
+  angry: number;
+  fearful: number;
+  disgusted: number;
+  surprised: number;
+};
+
 const WebCamPage = () => {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
   const [count, setCount] = useState(0);
   const [comparedSrc, setComparedSrc] = useState<HTMLImageElement | null>(null);
+  const [faceExpression, setFaceExpression] = useState<{
+    highestvalue: number;
+    expression: string | undefined;
+  } | null>(null);
   const [faces, setFaces] = useState<{ detection: faceapi.FaceDetection }[]>(
     []
   );
   const [message, setMessage] = useState("");
-  const [filteredFaces, setFilteredFaces] = useState<
-    { detection: faceapi.FaceDetection }[]
-  >([]);
+  const [filteredFaces, setFilteredFaces] = useState<FaceWithDescriptor[]>([]);
   const [originalImagesWithDescriptors, setOriginalImagesWithDescriptors] =
-    useState<
-      {
-        image: HTMLImageElement;
-        descriptor: faceapi.WithFaceDescriptor<
-          faceapi.WithFaceLandmarks<
-            { detection: faceapi.FaceDetection },
-            faceapi.FaceLandmarks68
-          >
-        >;
-      }[]
-    >([]);
-
+    useState<FaceWithDescriptor[]>([]);
   const [isDisabledFirst, setIsDisabledFirst] = useState(true);
   const [isDisabledSecond, setIsDisabledSecond] = useState(true);
 
@@ -92,6 +103,7 @@ const WebCamPage = () => {
       await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
       await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
       await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
+      await faceapi.nets.faceExpressionNet.loadFromUri("/models");
     };
     loadModels();
   }, []);
@@ -101,9 +113,7 @@ const WebCamPage = () => {
     isCompare?: boolean,
     faceToDraw?: faceapi.WithFaceDescriptor<
       faceapi.WithFaceLandmarks<
-        {
-          detection: faceapi.FaceDetection;
-        },
+        { detection: faceapi.FaceDetection },
         faceapi.FaceLandmarks68
       >
     >[]
@@ -148,6 +158,14 @@ const WebCamPage = () => {
     }
   };
 
+  const formatPercentage = (value: number): number => {
+    return Number((value * 100).toFixed(0));
+  };
+
+  const getKeyByValue = (object: { [x: string]: any }, value: number) => {
+    return Object.keys(object).find((key) => object[key] === value);
+  };
+
   const handleCompareTwoFaces = async () => {
     if (compareFaceRef?.current) {
       const comparedFace = await faceapi
@@ -164,9 +182,9 @@ const WebCamPage = () => {
         originalImagesWithDescriptors.length > 0
       ) {
         let minDistance = Infinity;
-        let matchedOriginal: any;
+        let matchedOriginal: FaceWithDescriptor | undefined;
 
-        originalImagesWithDescriptors.forEach((original: any) => {
+        originalImagesWithDescriptors.forEach((original) => {
           const distance = faceapi.euclideanDistance(
             original.descriptor.descriptor,
             comparedFace.descriptor
@@ -178,12 +196,46 @@ const WebCamPage = () => {
             }
           }
         });
-        console.log(minDistance, "minDistance",compareFaceRef.current);
         setCount(originalImages.length);
         setComparedSrc(compareFaceRef.current);
         if (matchedOriginal) {
           handleFaceDetection(matchedOriginal.image, false);
-          setFilteredFaces([matchedOriginal.descriptor]);
+          setFilteredFaces([matchedOriginal]);
+
+          const faceExpression = await faceapi
+            .detectSingleFace(
+              matchedOriginal.image,
+              new faceapi.TinyFaceDetectorOptions()
+            )
+            .withFaceLandmarks()
+            .withFaceExpressions();
+
+          const jsonData: FaceExpressions | undefined =
+            faceExpression?.expressions;
+
+          if (jsonData) {
+            const formattedFaceExpressions = {
+              neutral: formatPercentage(jsonData.neutral),
+              happy: formatPercentage(jsonData.happy),
+              sad: formatPercentage(jsonData.sad),
+              angry: formatPercentage(jsonData.angry),
+              fearful: formatPercentage(jsonData.fearful),
+              disgusted: formatPercentage(jsonData.disgusted),
+              surprised: formatPercentage(jsonData.surprised),
+            };
+
+            const convertedPercentages = Object.values(
+              formattedFaceExpressions
+            ).sort();
+            const highestvalue =
+              convertedPercentages[convertedPercentages.length - 1];
+
+            setFaceExpression({
+              highestvalue,
+              expression: getKeyByValue(formattedFaceExpressions, highestvalue),
+            });
+          }
+
           setMessage("Find A Match");
         } else {
           if (canvasRef.current) {
@@ -200,15 +252,6 @@ const WebCamPage = () => {
     }
   };
 
-  console.log(
-    comparedSrc?.src === compareFaceRef.current?.src,
-    "comparedSrc",
-    count !== originalImages.length,
-    compareFaceRef.current,
-    comparedSrc,
-    filteredFaces,
-    "filteredFaces"
-  );
   return (
     <Container style={{ textAlign: "center" }}>
       <h4>Compare Image</h4>
@@ -302,9 +345,8 @@ const WebCamPage = () => {
         style={{ marginLeft: "20px", marginTop: "20px" }}
         disabled={
           // count === originalImages.length ||
-          comparedSrc?.src === compareFaceRef.current?.src ||
-          isDisabledFirst ||
-          isDisabledSecond
+          // comparedSrc?.src === compareFaceRef.current?.src ||
+          isDisabledFirst || isDisabledSecond
         }
         onClick={handleCompareTwoFaces}
       >
@@ -323,11 +365,14 @@ const WebCamPage = () => {
           {filteredFaces.map((face, i) => (
             <div key={i}>
               <p>Face {i + 1}</p>
-              <p>X: {face?.detection.box.x}</p>
-              <p>Y: {face?.detection.box.y}</p>
-              <p>Width: {face?.detection.box.width}</p>
-              <p>Height: {face?.detection.box.height}</p>
-              <p>Expression: {}</p>
+              <p>X: {face?.descriptor.detection.box.x}</p>
+              <p>Y: {face?.descriptor.detection.box.y}</p>
+              <p>Width: {face?.descriptor.detection.box.width}</p>
+              <p>Height: {face?.descriptor.detection.box.height}</p>
+              <p>
+                Expression:{faceExpression?.expression}{" "}
+                {faceExpression?.highestvalue}%
+              </p>
             </div>
           ))}
         </div>
