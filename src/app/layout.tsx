@@ -17,7 +17,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <script src="https://cdn.faceio.net/fio.js"></script>
         {children}
       </body>
     </html>
