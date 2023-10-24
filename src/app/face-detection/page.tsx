@@ -2,8 +2,10 @@
 import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 const Page = () => {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
@@ -62,6 +64,13 @@ const Page = () => {
       if (imageElement.complete) {
         setIsDisabled(true);
         canvas.getContext("2d")?.drawImage(imageElement, 0, 0);
+        // canvas
+        //   .getContext("2d")
+        //   ?.fillText(
+        //     "imageElement.alt",
+        //     canvas.width - 100,
+        //     canvas.height - 140
+        //   );
 
         const faceDetector = new faceapi.TinyFaceDetectorOptions({
           inputSize: 512,
@@ -71,9 +80,29 @@ const Page = () => {
           .detectAllFaces(canvas, faceDetector)
           .withFaceLandmarks()
           .withFaceDescriptors();
-
+        setFilteredFaces(faces);
         if (faces.length) {
           faceapi.draw.drawFaceLandmarks(canvas, faces);
+          faces.map((face, i) => {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              if (face && face.detection && face.detection.box) {
+                ctx.strokeStyle = "black"; // Set the text color
+                ctx.strokeText(
+                  `Face ${i + 1}`,
+                  face.detection.box.x + face.detection.box.width,
+                  face.detection.box.height - face.detection.box.y,
+                  100
+                );
+                ctx.strokeRect(
+                  face.detection.box.x,
+                  face.detection.box.y,
+                  face.detection.box.width,
+                  face.detection.box.height
+                );
+              }
+            }
+          });
         } else {
           canvas.width = 0;
           canvas.height = 0;
@@ -86,7 +115,6 @@ const Page = () => {
       console.error("Canvas or image element not found");
     }
   };
-
   return (
     <Container style={{ textAlign: "center" }} id="faceDetection">
       <h4>Original Image</h4>
@@ -123,17 +151,26 @@ const Page = () => {
       >
         Detect All Faces
       </Button>
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
+      </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-          {filteredFaces.map((face, i) => (
-            <div key={i}>
-              <p>Face {i + 1}</p>
-              <p>X: {face?.detection.box.x}</p>
-              <p>Y: {face?.detection.box.y}</p>
-              <p>Width: {face?.detection.box.width}</p>
-              <p>Height: {face?.detection.box.height}</p>
-            </div>
-          ))}
+          {filteredFaces.map((face, i) => {
+            return (
+              <div key={i}>
+                <p>Face {i + 1}</p>
+                <p>X: {face?.detection.box.x}</p>
+                <p>Y: {face?.detection.box.y}</p>
+                <p>Width: {face?.detection.box.width}</p>
+                <p>Height: {face?.detection.box.height}</p>
+              </div>
+            );
+          })}
         </div>
       )}
       <h4>{message}</h4>

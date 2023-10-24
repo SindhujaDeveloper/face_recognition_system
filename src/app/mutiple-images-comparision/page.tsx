@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 interface FaceWithDescriptor {
   image: HTMLImageElement;
@@ -24,6 +25,8 @@ type FaceExpressions = {
 };
 
 const MultipleImageUpload = () => {
+  const router = useRouter();
+
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
   const [count, setCount] = useState(0);
@@ -127,6 +130,8 @@ const MultipleImageUpload = () => {
       if (imageElement.complete) {
         canvas.getContext("2d")?.drawImage(imageElement, 0, 0);
 
+        
+
         const faceDetector = new faceapi.TinyFaceDetectorOptions({
           inputSize: 512,
           scoreThreshold: 0.5,
@@ -143,6 +148,27 @@ const MultipleImageUpload = () => {
               canvas,
               faceToDraw ? faceToDraw : detectedFaces
             );
+            detectedFaces.map((face, i) => {
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                if (face && face.detection && face.detection.box) {
+                  ctx.strokeStyle = "black"; // Set the text color
+                  ctx.strokeText(
+                    `Face ${i + 1}`,
+                    face.detection.box.x + face.detection.box.width,
+                    face.detection.box.height - face.detection.box.y,
+                    100
+                  );
+                  ctx.strokeRect(
+                    face.detection.box.x,
+                    face.detection.box.y,
+                    face.detection.box.width,
+                    face.detection.box.height
+                  );
+                }
+              }
+            });
+
           } else {
             return detectedFaces;
           }
@@ -211,10 +237,12 @@ const MultipleImageUpload = () => {
             .withFaceLandmarks()
             .withFaceExpressions();
 
+
           const jsonData: FaceExpressions | undefined =
             faceExpression?.expressions;
 
           if (jsonData) {
+            
             const formattedFaceExpressions = {
               neutral: formatPercentage(jsonData.neutral),
               happy: formatPercentage(jsonData.happy),
@@ -353,13 +381,20 @@ const MultipleImageUpload = () => {
       >
         Compare Two Faces
       </Button>
-      <Button
+      {/* <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
         disabled={isDisabledFirst || isDisabledSecond}
         onClick={() => handleFaceDetection(compareFaceRef.current)}
       >
         Detect All Faces
+      </Button> */}
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>

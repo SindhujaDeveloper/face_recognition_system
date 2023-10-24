@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 type FaceExpressions = {
   neutral: number;
@@ -14,6 +15,7 @@ type FaceExpressions = {
 };
 
 const FaceExpressionDetectionPage = () => {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
@@ -122,6 +124,26 @@ const FaceExpressionDetectionPage = () => {
         setFilteredFaces(faceExpressionData);
         if (faces.length) {
           faceapi.draw.drawFaceLandmarks(canvas, faces);
+          faces.map((face, i) => {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              if (face && face.detection && face.detection.box) {
+                ctx.strokeStyle = "black"; // Set the text color
+                ctx.strokeText(
+                  `Face ${i + 1}`,
+                  face.detection.box.x + face.detection.box.width,
+                  face.detection.box.height - face.detection.box.y,
+                  100
+                );
+                ctx.strokeRect(
+                  face.detection.box.x,
+                  face.detection.box.y,
+                  face.detection.box.width,
+                  face.detection.box.height
+                );
+              }
+            }
+          });
         } else {
           canvas.width = 0;
           canvas.height = 0;
@@ -169,7 +191,14 @@ const FaceExpressionDetectionPage = () => {
         disabled={isDisabled}
         onClick={() => handleFaceDetection("original")}
       >
-        Detect All Faces
+        Detect All Faces with Expression
+      </Button>
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
