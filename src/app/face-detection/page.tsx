@@ -3,7 +3,7 @@ import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 
-const Page : React.FC = () => {
+const Page = () => {
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
