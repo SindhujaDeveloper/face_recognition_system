@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 const MainPage = () => {
   const navigate = useNavigate();
+  
   return (
     <div style={{ textAlign: "center" }}>
       <h3 style={{ marginTop: "20px" }}>

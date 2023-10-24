@@ -19,7 +19,10 @@ const FaceExpressionDetection = () => {
   const [isDisabled, setIsDisabled] = useState(true);
   const [images, setImages] = useState<any>([]);
 
-  const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+  const canvas =
+    typeof window !== "undefined"
+      ? (document.getElementById("canvas") as HTMLCanvasElement)
+      : null;
 
   const originalFaceRef = useRef<HTMLImageElement>(null);
   const originalInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +35,7 @@ const FaceExpressionDetection = () => {
     e: React.ChangeEvent<HTMLInputElement>,
     imageName: string
   ) => {
-    if (images.length) {
+    if (images.length && canvas) {
       setFilteredFaces([]);
       setMessage("");
       canvas.height = 0;
@@ -41,7 +44,10 @@ const FaceExpressionDetection = () => {
     const imgFile = e.target.files?.[0];
     if (imgFile) {
       const img = await faceapi.bufferToImage(imgFile);
-      const imageTag = document.getElementById(imageName) as HTMLImageElement;
+      const imageTag =
+        typeof window !== "undefined"
+          ? (document.getElementById(imageName) as HTMLImageElement)
+          : null;
       if (imageTag) {
         imageTag.src = img.src;
         setImages([...images, img]);
@@ -84,7 +90,7 @@ const FaceExpressionDetection = () => {
   };
 
   const handleFaceDetection = async (imageName: string) => {
-    const imageElement = document.getElementById(imageName) as HTMLImageElement;
+    const imageElement =  typeof window !== "undefined" ? document.getElementById(imageName) as HTMLImageElement : null;
 
     if (canvas && imageElement) {
       await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
