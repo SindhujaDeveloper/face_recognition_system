@@ -124,6 +124,26 @@ const FaceExpressionDetectionPage = () => {
         setFilteredFaces(faceExpressionData);
         if (faces.length) {
           faceapi.draw.drawFaceLandmarks(canvas, faces);
+          faces.map((face, i) => {
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              if (face && face.detection && face.detection.box) {
+                ctx.strokeStyle = "black"; // Set the text color
+                ctx.strokeText(
+                  `Face ${i + 1}`,
+                  face.detection.box.x + face.detection.box.width,
+                  face.detection.box.height - face.detection.box.y,
+                  100
+                );
+                ctx.strokeRect(
+                  face.detection.box.x,
+                  face.detection.box.y,
+                  face.detection.box.width,
+                  face.detection.box.height
+                );
+              }
+            }
+          });
         } else {
           canvas.width = 0;
           canvas.height = 0;
