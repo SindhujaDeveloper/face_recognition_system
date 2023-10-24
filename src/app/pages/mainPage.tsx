@@ -1,10 +1,11 @@
+"use client";
+import { useRouter } from "next/navigation";
 import React from "react";
 import { Button } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
 
 const MainPage = () => {
-  const navigate = useNavigate();
-  
+  const router = useRouter();
+
   return (
     <div style={{ textAlign: "center" }}>
       <h3 style={{ marginTop: "20px" }}>
@@ -13,25 +14,25 @@ const MainPage = () => {
       <div style={{ marginTop: "200px" }}>
         <Button
           style={{ marginLeft: "30px" }}
-          onClick={() => navigate("./face-detection")}
+          onClick={() => router.push("./face-detection")}
         >
           Face Detection
         </Button>
         <Button
           style={{ marginLeft: "30px" }}
-          onClick={() => navigate("./single-image-comparision")}
+          onClick={() => router.push("./single-image-comparision")}
         >
           Compare with Single Image
         </Button>
         <Button
           style={{ marginLeft: "30px" }}
-          onClick={() => navigate("./mutiple-images-comparision")}
+          onClick={() => router.push("./mutiple-images-comparision")}
         >
           Compare with Multiple Images
         </Button>
         <Button
           style={{ marginLeft: "30px" }}
-          onClick={() => navigate("./face-expression-detection")}
+          onClick={() => router.push("./face-expression-detection")}
         >
           Face Expression Detection
         </Button>

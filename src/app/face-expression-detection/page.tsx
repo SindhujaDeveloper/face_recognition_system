@@ -3,7 +3,17 @@ import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 
-const FaceDetection = () => {
+type FaceExpressions = {
+  neutral: number;
+  happy: number;
+  sad: number;
+  angry: number;
+  fearful: number;
+  disgusted: number;
+  surprised: number;
+};
+
+const FaceExpressionDetectionPage = () => {
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
@@ -45,6 +55,40 @@ const FaceDetection = () => {
     }
   };
 
+  const formatPercentage = (value: number): number => {
+    return Number((value * 100).toFixed(0));
+  };
+
+  const getKeyByValue = (object: { [x: string]: any }, value: number) => {
+    return Object.keys(object).find((key) => object[key] === value);
+  };
+
+  const handleExpressionDetection = (data: any) => {
+    const jsonData: FaceExpressions | undefined = data?.expressions;
+
+    if (jsonData) {
+      const formattedFaceExpressions = {
+        neutral: formatPercentage(jsonData.neutral),
+        happy: formatPercentage(jsonData.happy),
+        sad: formatPercentage(jsonData.sad),
+        angry: formatPercentage(jsonData.angry),
+        fearful: formatPercentage(jsonData.fearful),
+        disgusted: formatPercentage(jsonData.disgusted),
+        surprised: formatPercentage(jsonData.surprised),
+      };
+
+      const convertedPercentages = Object.values(
+        formattedFaceExpressions
+      ).sort();
+      const highestvalue =
+        convertedPercentages[convertedPercentages.length - 1];
+      return {
+        highestvalue,
+        expression: getKeyByValue(formattedFaceExpressions, highestvalue),
+      };
+    }
+  };
+
   const handleFaceDetection = async (imageName: string) => {
     const imageElement =
       typeof window !== "undefined"
@@ -55,6 +99,7 @@ const FaceDetection = () => {
       await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
       await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
       await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
+      await faceapi.nets.faceExpressionNet.loadFromUri("/models");
 
       canvas.width = imageElement.width;
       canvas.height = imageElement.height;
@@ -67,11 +112,14 @@ const FaceDetection = () => {
           inputSize: 512,
           scoreThreshold: 0.5,
         });
-        const faces = await faceapi
+        const facesData = faceapi
           .detectAllFaces(canvas, faceDetector)
-          .withFaceLandmarks()
-          .withFaceDescriptors();
+          .withFaceLandmarks();
 
+        const faces = await facesData.withFaceDescriptors();
+        const faceExpressionData: any = await facesData.withFaceExpressions();
+
+        setFilteredFaces(faceExpressionData);
         if (faces.length) {
           faceapi.draw.drawFaceLandmarks(canvas, faces);
         } else {
@@ -125,15 +173,26 @@ const FaceDetection = () => {
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-          {filteredFaces.map((face, i) => (
-            <div key={i}>
-              <p>Face {i + 1}</p>
-              <p>X: {face?.detection.box.x}</p>
-              <p>Y: {face?.detection.box.y}</p>
-              <p>Width: {face?.detection.box.width}</p>
-              <p>Height: {face?.detection.box.height}</p>
-            </div>
-          ))}
+          {filteredFaces.map((face, i) => {
+            const expressionFinal = handleExpressionDetection(face);
+            return (
+              <div key={i}>
+                <p>Face {i + 1}</p>
+                {/* <p>X: {face?.detection.box.x}</p>
+                <p>Y: {face?.detection.box.y}</p>
+                <p>Width: {face?.detection.box.width}</p>
+                <p>Height: {face?.detection.box.height}</p> */}
+                <p>
+                  Expression:{" "}
+                  <b>{expressionFinal?.expression?.toUpperCase()}</b>
+                </p>
+                <p>
+                  Expression Value:
+                  <b> {expressionFinal?.highestvalue}%</b>
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
       <h4>{message}</h4>
@@ -142,4 +201,4 @@ const FaceDetection = () => {
   );
 };
 
-export default FaceDetection;
+export default FaceExpressionDetectionPage;
