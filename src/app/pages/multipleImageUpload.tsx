@@ -119,7 +119,7 @@ const MultipleImageUpload = () => {
       >
     >[]
   ) => {
-    const canvas = canvasRef.current;
+    const canvas = typeof window !== "undefined" ? canvasRef.current : null;
     if (canvas && imageElement) {
       canvas.width = imageElement.width;
       canvas.height = imageElement.height;
