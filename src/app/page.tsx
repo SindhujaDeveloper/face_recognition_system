@@ -10,7 +10,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 
 let router: Router;
-if (typeof window !== undefined) {
+if (typeof window !== "undefined") {
   router = createBrowserRouter([
     {
       path: "/",
