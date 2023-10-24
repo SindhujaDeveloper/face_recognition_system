@@ -35,7 +35,7 @@ export default function RootLayout({
           href="https://face-comparision-with-expression.netlify.app/"
         />
         <link rel="canonical" href="https://nextjs.org" />
-        <title>Play 2048 Game - New Modes, Cupcakes, 8x8 Board, and More</title>
+        <title>Facial Detection, Comparison, and Expression Analysis</title>
       </head>
       <body className={inter.className}>{children}</body>
     </html>
