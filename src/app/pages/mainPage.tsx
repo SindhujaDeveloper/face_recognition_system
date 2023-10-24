@@ -20,6 +20,12 @@ const MainPage = () => {
         </Button>
         <Button
           style={{ marginLeft: "30px" }}
+          onClick={() => router.push("./face-expression-detection")}
+        >
+          Face Expression Detection
+        </Button>
+        <Button
+          style={{ marginLeft: "30px" }}
           onClick={() => router.push("./single-image-comparision")}
         >
           Compare with Single Image
@@ -28,13 +34,7 @@ const MainPage = () => {
           style={{ marginLeft: "30px" }}
           onClick={() => router.push("./mutiple-images-comparision")}
         >
-          Compare with Multiple Images
-        </Button>
-        <Button
-          style={{ marginLeft: "30px" }}
-          onClick={() => router.push("./face-expression-detection")}
-        >
-          Face Expression Detection
+          Compare with Multiple Images with Expression
         </Button>
       </div>
     </div>

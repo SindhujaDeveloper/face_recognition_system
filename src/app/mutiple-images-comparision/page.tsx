@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 interface FaceWithDescriptor {
   image: HTMLImageElement;
@@ -24,6 +25,8 @@ type FaceExpressions = {
 };
 
 const MultipleImageUpload = () => {
+  const router = useRouter();
+
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
   const [count, setCount] = useState(0);
@@ -353,13 +356,20 @@ const MultipleImageUpload = () => {
       >
         Compare Two Faces
       </Button>
-      <Button
+      {/* <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
         disabled={isDisabledFirst || isDisabledSecond}
         onClick={() => handleFaceDetection(compareFaceRef.current)}
       >
         Detect All Faces
+      </Button> */}
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>

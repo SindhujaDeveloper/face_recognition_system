@@ -2,6 +2,7 @@
 import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 type FaceExpressions = {
   neutral: number;
@@ -14,6 +15,7 @@ type FaceExpressions = {
 };
 
 const FaceExpressionDetectionPage = () => {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabled, setIsDisabled] = useState(true);
@@ -169,7 +171,14 @@ const FaceExpressionDetectionPage = () => {
         disabled={isDisabled}
         onClick={() => handleFaceDetection("original")}
       >
-        Detect All Faces
+        Detect All Faces with Expression
+      </Button>
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>

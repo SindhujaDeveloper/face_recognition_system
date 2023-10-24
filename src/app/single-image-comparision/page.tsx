@@ -2,8 +2,11 @@
 import React, { useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
+import { useRouter } from "next/navigation";
 
 const SingleImageComparision = () => {
+  const router = useRouter();
+
   const [message, setMessage] = useState("");
   const [filteredFaces, setFilteredFaces] = useState<any[]>([]);
   const [isDisabledFirst, setIsDisabledFirst] = useState(true);
@@ -209,14 +212,14 @@ const SingleImageComparision = () => {
       <div style={{ marginTop: "30px", marginBottom: "30px" }}>
         <img ref={comparedFaceRef} id="compare" src="" />
       </div>
-      <Button
+      {/* <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
         disabled={isDisabledFirst || isDisabledSecond}
         onClick={() => handleFaceDetection("com")}
       >
         Detect All Faces
-      </Button>
+      </Button> */}
       <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
@@ -226,6 +229,13 @@ const SingleImageComparision = () => {
         onClick={() => handleCompareTwoFaces()}
       >
         Compare Two Faces
+      </Button>
+      <Button
+        variant="danger"
+        style={{ marginLeft: "20px", marginTop: "20px" }}
+        onClick={() => router.push("/")}
+      >
+        Back
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
