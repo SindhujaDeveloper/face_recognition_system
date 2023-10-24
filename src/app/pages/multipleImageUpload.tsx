@@ -23,7 +23,7 @@ type FaceExpressions = {
   surprised: number;
 };
 
-const WebCamPage = () => {
+const MultipleImageUpload = () => {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
   const [count, setCount] = useState(0);
@@ -384,4 +384,4 @@ const WebCamPage = () => {
   );
 };
 
-export default WebCamPage;
+export default MultipleImageUpload;
