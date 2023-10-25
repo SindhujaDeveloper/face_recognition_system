@@ -124,26 +124,38 @@ const FaceExpressionDetectionPage = () => {
         setFilteredFaces(faceExpressionData);
         if (faces.length) {
           faceapi.draw.drawFaceLandmarks(canvas, faces);
-          faces.map((face, i) => {
-            const ctx = canvas.getContext("2d");
-            if (ctx) {
-              if (face && face.detection && face.detection.box) {
-                ctx.strokeStyle = "black"; // Set the text color
-                ctx.strokeText(
-                  `Face ${i + 1}`,
-                  face.detection.box.x + face.detection.box.width,
-                  face.detection.box.height - face.detection.box.y,
-                  100
-                );
-                ctx.strokeRect(
-                  face.detection.box.x,
-                  face.detection.box.y,
-                  face.detection.box.width,
-                  face.detection.box.height
-                );
+          faceExpressionData.map(
+            (
+              face: {
+                detection: {
+                  box: { x: number; y: number; width: number; height: number };
+                };
+              },
+              i: number
+            ) => {
+              const ctx = canvas.getContext("2d");
+              const expressionFinal = handleExpressionDetection(face);
+              if (ctx) {
+                if (face && face.detection && face.detection.box) {
+                  ctx.strokeStyle = "black";
+                  ctx.strokeText(
+                    `Face ${
+                      i + 1
+                    } -   ${expressionFinal?.expression?.toUpperCase()}`,
+                    face.detection.box.x,
+                    face.detection.box.y - 3,
+                    100
+                  );
+                  ctx.strokeRect(
+                    face.detection.box.x,
+                    face.detection.box.y,
+                    face.detection.box.width,
+                    face.detection.box.height
+                  );
+                }
               }
             }
-          });
+          );
         } else {
           canvas.width = 0;
           canvas.height = 0;
@@ -156,6 +168,16 @@ const FaceExpressionDetectionPage = () => {
       console.error("Canvas or image element not found");
     }
   };
+
+  const emojiData = [
+    { expression: "angry", emoji: "😑" },
+    { expression: "disgusted", emoji: "😑" },
+    { expression: "fearful", emoji: "😑" },
+    { expression: "happy", emoji: "😃" },
+    { expression: "neutral", emoji: "😑" },
+    { expression: "sad", emoji: "😑" },
+    { expression: "surprised", emoji: "😯" },
+  ];
 
   return (
     <Container style={{ textAlign: "center" }}>
@@ -213,7 +235,14 @@ const FaceExpressionDetectionPage = () => {
                 <p>Height: {face?.detection.box.height}</p> */}
                 <p>
                   Expression:{" "}
-                  <b>{expressionFinal?.expression?.toUpperCase()}</b>
+                  <b>
+                    {expressionFinal?.expression?.toUpperCase()}
+                    {
+                      emojiData?.find(
+                        (it) => it.expression === expressionFinal?.expression
+                      )?.emoji
+                    }
+                  </b>
                 </p>
                 <p>
                   Expression Value:

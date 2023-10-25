@@ -1,11 +1,20 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
 import { Button, Container } from "react-bootstrap";
 import { useRouter } from "next/navigation";
 
 interface FaceWithDescriptor {
   image: HTMLImageElement;
+  descriptor: faceapi.WithFaceDescriptor<
+    faceapi.WithFaceLandmarks<
+      { detection: faceapi.FaceDetection },
+      faceapi.FaceLandmarks68
+    >
+  >;
+}
+
+interface descriptorData {
   descriptor: faceapi.WithFaceDescriptor<
     faceapi.WithFaceLandmarks<
       { detection: faceapi.FaceDetection },
@@ -51,6 +60,16 @@ const MultipleImageUpload = () => {
   const originalInputRef = useRef<HTMLInputElement | null>(null);
   const compareInputRef = useRef<HTMLInputElement | null>(null);
 
+  let dynamicCanvasRefs: React.RefObject<HTMLCanvasElement>[] = [];
+
+  // const dynamicCanvasRefs = images.map(() => React.createRef());
+
+  for (let i = 0; i < 5; i++) {
+    dynamicCanvasRefs[i] = useRef<HTMLCanvasElement | null>(null);
+  }
+
+  const [filteredFaces1, setFilteredFaces1] = useState<any[]>([]);
+  const [result, setResult] = useState<any[]>([]);
   const handleUpload = (refTemp: string) => {
     (refTemp === "original"
       ? originalInputRef
@@ -112,78 +131,80 @@ const MultipleImageUpload = () => {
     loadModels();
   }, []);
 
-  const handleFaceDetection = async (
-    imageElement: HTMLImageElement | null,
-    isCompare?: boolean,
-    faceToDraw?: faceapi.WithFaceDescriptor<
-      faceapi.WithFaceLandmarks<
-        { detection: faceapi.FaceDetection },
-        faceapi.FaceLandmarks68
-      >
-    >[]
-  ) => {
-    const canvas = typeof window !== "undefined" ? canvasRef.current : null;
-    if (canvas && imageElement) {
-      canvas.width = imageElement.width;
-      canvas.height = imageElement.height;
+  const handleFaceDetection = useCallback(
+    async (
+      imageElement: HTMLImageElement | null,
+      imageIndex: number,
+      isCompare?: boolean
+    ) => {
+      // const canvas =
+      //   typeof window !== "undefined"
+      //     ? dynamicCanvasRefs[imageIndex]?.current
+      //     : null;
 
-      if (imageElement.complete) {
-        canvas.getContext("2d")?.drawImage(imageElement, 0, 0);
+      // const canvas = imageIndex
+      //   ? dynamicCanvasRefs[imageIndex]?.current
+      //   : canvasRef?.current;
 
-        
+      const canvas = dynamicCanvasRefs[imageIndex]?.current;
 
-        const faceDetector = new faceapi.TinyFaceDetectorOptions({
-          inputSize: 512,
-          scoreThreshold: 0.5,
-        });
-        const detectedFaces = await faceapi
-          .detectAllFaces(canvas, faceDetector)
-          .withFaceLandmarks()
-          .withFaceDescriptors();
-        setFaces([...faces, ...detectedFaces]);
+      if (canvas && imageElement) {
+        canvas.width = imageElement.width;
+        canvas.height = imageElement.height;
 
-        if (detectedFaces.length) {
-          if (!isCompare) {
-            faceapi.draw.drawFaceLandmarks(
-              canvas,
-              faceToDraw ? faceToDraw : detectedFaces
-            );
-            detectedFaces.map((face, i) => {
-              const ctx = canvas.getContext("2d");
-              if (ctx) {
-                if (face && face.detection && face.detection.box) {
-                  ctx.strokeStyle = "black"; // Set the text color
-                  ctx.strokeText(
-                    `Face ${i + 1}`,
-                    face.detection.box.x + face.detection.box.width,
-                    face.detection.box.height - face.detection.box.y,
-                    100
-                  );
-                  ctx.strokeRect(
-                    face.detection.box.x,
-                    face.detection.box.y,
-                    face.detection.box.width,
-                    face.detection.box.height
-                  );
+        if (imageElement.complete) {
+          canvas.getContext("2d")?.drawImage(imageElement, 0, 0);
+
+          const faceDetector = new faceapi.TinyFaceDetectorOptions({
+            inputSize: 512,
+            scoreThreshold: 0.5,
+          });
+          const detectedFaces = await faceapi
+            .detectAllFaces(canvas, faceDetector)
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+          setFaces([...faces, ...detectedFaces]);
+
+          if (detectedFaces.length) {
+            if (!isCompare) {
+              faceapi.draw.drawFaceLandmarks(canvas, detectedFaces);
+              detectedFaces.map((face, i) => {
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  if (face && face.detection && face.detection.box) {
+                    ctx.strokeStyle = "black";
+                    ctx.strokeText(
+                      `Face ${i + 1}`,
+                      face.detection.box.x,
+                      face.detection.box.y - 3,
+                      100
+                    );
+                    ctx.strokeRect(
+                      face.detection.box.x,
+                      face.detection.box.y,
+                      face.detection.box.width,
+                      face.detection.box.height
+                    );
+                  }
                 }
-              }
-            });
-
+              });
+            } else {
+              return detectedFaces;
+            }
           } else {
-            return detectedFaces;
+            canvas.width = 0;
+            canvas.height = 0;
+            setMessage("There is no face detected");
           }
         } else {
-          canvas.width = 0;
-          canvas.height = 0;
-          setMessage("There is no face detected");
+          setMessage("Image element not completed");
         }
       } else {
-        setMessage("Image element not completed");
+        console.error("Canvas or image element not found");
       }
-    } else {
-      console.error("Canvas or image element not found");
-    }
-  };
+    },
+    []
+  );
 
   const formatPercentage = (value: number): number => {
     return Number((value * 100).toFixed(0));
@@ -208,78 +229,99 @@ const MultipleImageUpload = () => {
         comparedFace &&
         originalImagesWithDescriptors.length > 0
       ) {
-        let minDistance = Infinity;
-        let matchedOriginal: FaceWithDescriptor | undefined;
+        // let minDistance = Infinity;
+        // let matchedOriginalData1: FaceWithDescriptor | undefined;
 
-        originalImagesWithDescriptors.forEach((original) => {
+        const data = originalImagesWithDescriptors.filter((original) => {
           const distance = faceapi.euclideanDistance(
             original.descriptor.descriptor,
             comparedFace.descriptor
           );
-          if (distance <= 0.5) {
-            if (distance < minDistance) {
-              minDistance = distance;
-              matchedOriginal = original;
-            }
-          }
+          return distance <= 0.5;
         });
-        setCount(originalImages.length);
-        setComparedSrc(compareFaceRef.current);
-        if (matchedOriginal) {
-          handleFaceDetection(matchedOriginal.image, false);
-          setFilteredFaces([matchedOriginal]);
 
-          const faceExpression = await faceapi
-            .detectSingleFace(
-              matchedOriginal.image,
-              new faceapi.TinyFaceDetectorOptions()
-            )
-            .withFaceLandmarks()
-            .withFaceExpressions();
+        // data.forEach((original) => {
+        //   const distance = faceapi.euclideanDistance(
+        //     original.descriptor.descriptor,
+        //     comparedFace.descriptor
+        //   );
+        //   if (distance <= 0.5) {
+        //     if (distance < minDistance) {
+        //       minDistance = distance;
+        //       matchedOriginalData1 = original;
+        //     }
+        //   }
+        // });
 
+        if (data.length > 0) {
+          setCount(originalImages.length);
+          setComparedSrc(compareFaceRef.current);
+          const results = await Promise.all(
+            data.map(async (matchedOriginal, index) => {
+              // if (matchedOriginalData1) {
+              //   handleFaceDetection(matchedOriginal.image, null, false);
+              //   // setFilteredFaces([matchedOriginal]);
+              // }
+              // handleFaceDetection(matchedOriginal.image, index, false);
 
-          const jsonData: FaceExpressions | undefined =
-            faceExpression?.expressions;
+              const faceExpression = await faceapi
+                .detectSingleFace(
+                  matchedOriginal.image,
+                  new faceapi.TinyFaceDetectorOptions()
+                )
+                .withFaceLandmarks()
+                .withFaceExpressions();
 
-          if (jsonData) {
-            
-            const formattedFaceExpressions = {
-              neutral: formatPercentage(jsonData.neutral),
-              happy: formatPercentage(jsonData.happy),
-              sad: formatPercentage(jsonData.sad),
-              angry: formatPercentage(jsonData.angry),
-              fearful: formatPercentage(jsonData.fearful),
-              disgusted: formatPercentage(jsonData.disgusted),
-              surprised: formatPercentage(jsonData.surprised),
-            };
+              const jsonData: FaceExpressions | undefined =
+                faceExpression?.expressions;
 
-            const convertedPercentages = Object.values(
-              formattedFaceExpressions
-            ).sort();
-            const highestvalue =
-              convertedPercentages[convertedPercentages.length - 1];
+              setFilteredFaces1([...filteredFaces1, faceExpression]);
 
-            setFaceExpression({
-              highestvalue,
-              expression: getKeyByValue(formattedFaceExpressions, highestvalue),
-            });
-          }
+              if (jsonData) {
+                const formattedFaceExpressions = {
+                  neutral: formatPercentage(jsonData.neutral),
+                  happy: formatPercentage(jsonData.happy),
+                  sad: formatPercentage(jsonData.sad),
+                  angry: formatPercentage(jsonData.angry),
+                  fearful: formatPercentage(jsonData.fearful),
+                  disgusted: formatPercentage(jsonData.disgusted),
+                  surprised: formatPercentage(jsonData.surprised),
+                };
+                const convertedPercentages = Object.values(
+                  formattedFaceExpressions
+                ).sort();
+                const highestvalue =
+                  convertedPercentages[convertedPercentages.length - 1];
 
+                setFaceExpression({
+                  highestvalue,
+                  expression: getKeyByValue(
+                    formattedFaceExpressions,
+                    highestvalue
+                  ),
+                });
+              }
+
+              return matchedOriginal; // Return the result of each async operation
+            })
+          );
           setMessage("Find A Match");
+          setResult(results);
         } else {
+          setFilteredFaces([]);
+          setResult([]);
+          setMessage("There is no match");
+          dynamicCanvasRefs = [];
           if (canvasRef.current) {
-            setFilteredFaces([]);
-            setMessage("");
             canvasRef.current.width = 0;
             canvasRef.current.height = 0;
-          }
-          if (message !== "Find A Match") {
-            setMessage("There is no match");
           }
         }
       }
     }
   };
+
+  console.log(filteredFaces1, "face1", result);
 
   return (
     <Container style={{ textAlign: "center" }}>
@@ -307,6 +349,7 @@ const MultipleImageUpload = () => {
           Upload
         </button>
       </div>
+
       {images.map((img, index) => (
         <div
           key={`${img.src}_${index}`}
@@ -317,7 +360,8 @@ const MultipleImageUpload = () => {
             id={`compare_${index}`}
             src={img.src}
             alt={`compare_${index}`}
-            // onLoad={() => handleImageLoad(compareFaceRef, "compare")}
+            onLoad={() => setResult([])}
+            // onLoad={() => handleFaceDetection(img, index, false)}
           />
         </div>
       ))}
@@ -356,19 +400,12 @@ const MultipleImageUpload = () => {
             id={`original_${index}`}
             src={img.src}
             alt={`original_${index}`}
+            onLoad={() => setResult([])}
             // onLoad={() => handleImageLoad(originalFaceRef, "original")}
           />
         </div>
       ))}
 
-      <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-        <img
-          ref={compareFaceRef}
-          id="compare"
-          src=""
-          onLoad={() => handleFaceDetection(compareFaceRef.current)}
-        />
-      </div>
       <Button
         variant="danger"
         style={{ marginLeft: "20px", marginTop: "20px" }}
@@ -413,8 +450,35 @@ const MultipleImageUpload = () => {
           ))}
         </div>
       )}
-      <h4>{message}</h4>
-      <canvas ref={canvasRef} />
+      <h4
+        style={{
+          marginTop: "30px",
+          marginBottom: "30px",
+        }}
+      >
+        {message}
+      </h4>
+
+      {result.map((img, index) => (
+        <div
+          key={`result_${index}`}
+          style={{
+            marginTop: "30px",
+            marginBottom: "30px",
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "space-evenly",
+          }}
+        >
+          <img
+            src={img?.image.src}
+            alt={`compare_${index}`}
+            onLoad={() => handleFaceDetection(img?.image, index, false)}
+          />
+          <canvas ref={dynamicCanvasRefs[index]} />
+        </div>
+      ))}
+      {/* <canvas ref={canvasRef} /> */}
     </Container>
   );
 };
