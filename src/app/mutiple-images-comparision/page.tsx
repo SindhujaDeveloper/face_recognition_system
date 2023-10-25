@@ -146,7 +146,10 @@ const MultipleImageUpload = () => {
       //   ? dynamicCanvasRefs[imageIndex]?.current
       //   : canvasRef?.current;
 
-      const canvas = dynamicCanvasRefs[imageIndex]?.current;
+      const canvas =
+        typeof window !== "undefined"
+          ? dynamicCanvasRefs[imageIndex]?.current
+          : null;
 
       if (canvas && imageElement) {
         canvas.width = imageElement.width;
