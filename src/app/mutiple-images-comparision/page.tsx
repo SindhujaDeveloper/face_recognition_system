@@ -134,6 +134,7 @@ const MultipleImageUpload = () => {
   const handleFaceDetection = useCallback(
     async (
       imageElement: HTMLImageElement | null,
+      canvasRef: React.RefObject<HTMLCanvasElement>,
       imageIndex: number,
       isCompare?: boolean
     ) => {
@@ -146,10 +147,7 @@ const MultipleImageUpload = () => {
       //   ? dynamicCanvasRefs[imageIndex]?.current
       //   : canvasRef?.current;
 
-      const canvas =
-        typeof window !== "undefined"
-          ? dynamicCanvasRefs[imageIndex]?.current
-          : null;
+      const canvas = typeof window !== "undefined" ? canvasRef?.current : null;
 
       if (canvas && imageElement) {
         canvas.width = imageElement.width;
@@ -476,7 +474,14 @@ const MultipleImageUpload = () => {
           <img
             src={img?.image.src}
             alt={`compare_${index}`}
-            onLoad={() => handleFaceDetection(img?.image, index, false)}
+            onLoad={() =>
+              handleFaceDetection(
+                img?.image,
+                dynamicCanvasRefs[index],
+                index,
+                false
+              )
+            }
           />
           <canvas ref={dynamicCanvasRefs[index]} />
         </div>
