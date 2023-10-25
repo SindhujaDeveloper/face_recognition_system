@@ -60,13 +60,9 @@ const MultipleImageUpload = () => {
   const originalInputRef = useRef<HTMLInputElement | null>(null);
   const compareInputRef = useRef<HTMLInputElement | null>(null);
 
-  let dynamicCanvasRefs: React.RefObject<HTMLCanvasElement>[] = [];
 
-  // const dynamicCanvasRefs = images.map(() => React.createRef());
+  const dynamicCanvasRefs = Array.from({ length: images.length }, () => useRef<HTMLCanvasElement | null>(null));
 
-  for (let i = 0; i < 5; i++) {
-    dynamicCanvasRefs[i] = useRef<HTMLCanvasElement | null>(null);
-  }
 
   const [filteredFaces1, setFilteredFaces1] = useState<any[]>([]);
   const [result, setResult] = useState<any[]>([]);
@@ -312,7 +308,6 @@ const MultipleImageUpload = () => {
           setFilteredFaces([]);
           setResult([]);
           setMessage("There is no match");
-          dynamicCanvasRefs = [];
           if (canvasRef.current) {
             canvasRef.current.width = 0;
             canvasRef.current.height = 0;
