@@ -101,11 +101,11 @@ const SingleImageComparision = () => {
               const ctx = canvas.getContext("2d");
               if (ctx) {
                 if (face && face.detection && face.detection.box) {
-                  ctx.strokeStyle = "black"; // Set the text color
+                  ctx.strokeStyle = "black";
                   ctx.strokeText(
                     `Face ${i + 1}`,
-                    face.detection.box.x + face.detection.box.width,
-                    face.detection.box.height - face.detection.box.y,
+                    face.detection.box.x,
+                    face.detection.box.y - 3,
                     100
                   );
                   ctx.strokeRect(
