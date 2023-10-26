@@ -34,7 +34,7 @@ const MainPage = () => {
           style={{ marginLeft: "30px" }}
           onClick={() => router.push("./mutiple-images-comparision")}
         >
-          Compare with Multiple Images with Expression
+          Compare Single face with Multiple Images with Expression
         </Button>
       </div>
     </div>

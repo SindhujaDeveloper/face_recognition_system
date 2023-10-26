@@ -53,19 +53,16 @@ const MultipleImageUpload = () => {
     useState<FaceWithDescriptor[]>([]);
   const [isDisabledFirst, setIsDisabledFirst] = useState(true);
   const [isDisabledSecond, setIsDisabledSecond] = useState(true);
+  const [filteredFaces1, setFilteredFaces1] = useState<any[]>([]);
+  const [result, setResult] = useState<any[]>();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const originalFaceRef = useRef<HTMLImageElement | null>(null);
   const compareFaceRef = useRef<HTMLImageElement | null>(null);
   const originalInputRef = useRef<HTMLInputElement | null>(null);
   const compareInputRef = useRef<HTMLInputElement | null>(null);
+  const dynamicCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
 
-
-  const dynamicCanvasRefs = Array.from({ length: images.length }, () => useRef<HTMLCanvasElement | null>(null));
-
-
-  const [filteredFaces1, setFilteredFaces1] = useState<any[]>([]);
-  const [result, setResult] = useState<any[]>([]);
   const handleUpload = (refTemp: string) => {
     (refTemp === "original"
       ? originalInputRef
@@ -107,6 +104,32 @@ const MultipleImageUpload = () => {
     }
   };
 
+  const handleExpressionDetection = (data: any) => {
+    const jsonData: FaceExpressions | undefined = data?.expressions;
+
+    if (jsonData) {
+      const formattedFaceExpressions = {
+        neutral: formatPercentage(jsonData.neutral),
+        happy: formatPercentage(jsonData.happy),
+        sad: formatPercentage(jsonData.sad),
+        angry: formatPercentage(jsonData.angry),
+        fearful: formatPercentage(jsonData.fearful),
+        disgusted: formatPercentage(jsonData.disgusted),
+        surprised: formatPercentage(jsonData.surprised),
+      };
+
+      const convertedPercentages = Object.values(
+        formattedFaceExpressions
+      ).sort();
+      const highestvalue =
+        convertedPercentages[convertedPercentages.length - 1];
+      return {
+        highestvalue,
+        expression: getKeyByValue(formattedFaceExpressions, highestvalue),
+      };
+    }
+  };
+
   // const handleImageLoad = (imageRef: { current: any }, type: string) => {
   //   const imageElement = imageRef.current;
   //   if (imageElement && canvasRef.current) {
@@ -130,7 +153,7 @@ const MultipleImageUpload = () => {
   const handleFaceDetection = useCallback(
     async (
       imageElement: HTMLImageElement | null,
-      canvasRef: React.RefObject<HTMLCanvasElement>,
+      canvasRefs: HTMLCanvasElement | null,
       imageIndex: number,
       isCompare?: boolean
     ) => {
@@ -139,11 +162,14 @@ const MultipleImageUpload = () => {
       //     ? dynamicCanvasRefs[imageIndex]?.current
       //     : null;
 
-      // const canvas = imageIndex
-      //   ? dynamicCanvasRefs[imageIndex]?.current
-      //   : canvasRef?.current;
+      const canvas =
+        typeof window !== "undefined"
+          ? canvasRefs
+            ? canvasRefs
+            : canvasRef?.current
+          : null;
 
-      const canvas = typeof window !== "undefined" ? canvasRef?.current : null;
+      // const canvas = typeof window !== "undefined" ? canvasRefs : null;
 
       if (canvas && imageElement) {
         canvas.width = imageElement.width;
@@ -159,7 +185,8 @@ const MultipleImageUpload = () => {
           const detectedFaces = await faceapi
             .detectAllFaces(canvas, faceDetector)
             .withFaceLandmarks()
-            .withFaceDescriptors();
+            .withFaceDescriptors()
+            .withFaceExpressions();
           setFaces([...faces, ...detectedFaces]);
 
           if (detectedFaces.length) {
@@ -167,11 +194,14 @@ const MultipleImageUpload = () => {
               faceapi.draw.drawFaceLandmarks(canvas, detectedFaces);
               detectedFaces.map((face, i) => {
                 const ctx = canvas.getContext("2d");
+                const expressionFinal = handleExpressionDetection(face);
                 if (ctx) {
                   if (face && face.detection && face.detection.box) {
                     ctx.strokeStyle = "black";
                     ctx.strokeText(
-                      `Face ${i + 1}`,
+                      `Face ${
+                        i + 1
+                      } -   ${expressionFinal?.expression?.toUpperCase()}`,
                       face.detection.box.x,
                       face.detection.box.y - 3,
                       100
@@ -226,8 +256,8 @@ const MultipleImageUpload = () => {
         comparedFace &&
         originalImagesWithDescriptors.length > 0
       ) {
-        // let minDistance = Infinity;
-        // let matchedOriginalData1: FaceWithDescriptor | undefined;
+        let minDistance = Infinity;
+        let matchedOriginalData1: FaceWithDescriptor | undefined;
 
         const data = originalImagesWithDescriptors.filter((original) => {
           const distance = faceapi.euclideanDistance(
@@ -237,68 +267,41 @@ const MultipleImageUpload = () => {
           return distance <= 0.5;
         });
 
-        // data.forEach((original) => {
-        //   const distance = faceapi.euclideanDistance(
-        //     original.descriptor.descriptor,
-        //     comparedFace.descriptor
-        //   );
-        //   if (distance <= 0.5) {
-        //     if (distance < minDistance) {
-        //       minDistance = distance;
-        //       matchedOriginalData1 = original;
-        //     }
-        //   }
-        // });
+        data.forEach((original) => {
+          const distance = faceapi.euclideanDistance(
+            original.descriptor.descriptor,
+            comparedFace.descriptor
+          );
+          if (distance <= 0.5) {
+            if (distance < minDistance) {
+              minDistance = distance;
+              matchedOriginalData1 = original;
+            }
+          }
+        });
 
         if (data.length > 0) {
           setCount(originalImages.length);
           setComparedSrc(compareFaceRef.current);
           const results = await Promise.all(
             data.map(async (matchedOriginal, index) => {
-              // if (matchedOriginalData1) {
-              //   handleFaceDetection(matchedOriginal.image, null, false);
-              //   // setFilteredFaces([matchedOriginal]);
-              // }
-              // handleFaceDetection(matchedOriginal.image, index, false);
-
-              const faceExpression = await faceapi
-                .detectSingleFace(
-                  matchedOriginal.image,
-                  new faceapi.TinyFaceDetectorOptions()
-                )
-                .withFaceLandmarks()
-                .withFaceExpressions();
-
-              const jsonData: FaceExpressions | undefined =
-                faceExpression?.expressions;
-
-              setFilteredFaces1([...filteredFaces1, faceExpression]);
-
-              if (jsonData) {
-                const formattedFaceExpressions = {
-                  neutral: formatPercentage(jsonData.neutral),
-                  happy: formatPercentage(jsonData.happy),
-                  sad: formatPercentage(jsonData.sad),
-                  angry: formatPercentage(jsonData.angry),
-                  fearful: formatPercentage(jsonData.fearful),
-                  disgusted: formatPercentage(jsonData.disgusted),
-                  surprised: formatPercentage(jsonData.surprised),
-                };
-                const convertedPercentages = Object.values(
-                  formattedFaceExpressions
-                ).sort();
-                const highestvalue =
-                  convertedPercentages[convertedPercentages.length - 1];
-
-                setFaceExpression({
-                  highestvalue,
-                  expression: getKeyByValue(
-                    formattedFaceExpressions,
-                    highestvalue
-                  ),
-                });
+              if (matchedOriginalData1) {
+                handleFaceDetection(
+                  matchedOriginalData1.image,
+                  null,
+                  index,
+                  false
+                );
+              } else {
+                const faceExpression = await faceapi
+                  .detectSingleFace(
+                    matchedOriginal.image,
+                    new faceapi.TinyFaceDetectorOptions()
+                  )
+                  .withFaceLandmarks()
+                  .withFaceExpressions();
+                handleExpressionDetection(faceExpression);
               }
-
               return matchedOriginal; // Return the result of each async operation
             })
           );
@@ -316,8 +319,6 @@ const MultipleImageUpload = () => {
       }
     }
   };
-
-  console.log(filteredFaces1, "face1", result);
 
   return (
     <Container style={{ textAlign: "center" }}>
@@ -356,7 +357,14 @@ const MultipleImageUpload = () => {
             id={`compare_${index}`}
             src={img.src}
             alt={`compare_${index}`}
-            onLoad={() => setResult([])}
+            onLoad={() => {
+              setResult([]);
+              setMessage("");
+              if (canvasRef.current) {
+                canvasRef.current.width = 0;
+                canvasRef.current.height = 0;
+              }
+            }}
             // onLoad={() => handleFaceDetection(img, index, false)}
           />
         </div>
@@ -396,8 +404,14 @@ const MultipleImageUpload = () => {
             id={`original_${index}`}
             src={img.src}
             alt={`original_${index}`}
-            onLoad={() => setResult([])}
-            // onLoad={() => handleImageLoad(originalFaceRef, "original")}
+            onLoad={() => {
+              setResult([]);
+              setMessage("");
+              if (canvasRef.current) {
+                canvasRef.current.width = 0;
+                canvasRef.current.height = 0;
+              }
+            }} // onLoad={() => handleImageLoad(originalFaceRef, "original")}
           />
         </div>
       ))}
@@ -431,19 +445,22 @@ const MultipleImageUpload = () => {
       </Button>
       {filteredFaces.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-          {filteredFaces.map((face, i) => (
-            <div key={i}>
-              <p>Face {i + 1}</p>
-              <p>X: {face?.descriptor.detection.box.x}</p>
-              <p>Y: {face?.descriptor.detection.box.y}</p>
-              <p>Width: {face?.descriptor.detection.box.width}</p>
-              <p>Height: {face?.descriptor.detection.box.height}</p>
-              <p>
-                Expression:{faceExpression?.expression}{" "}
-                {faceExpression?.highestvalue}%
-              </p>
-            </div>
-          ))}
+          {filteredFaces.map((face, i) => {
+            const expressionFinal = handleExpressionDetection(face);
+            return (
+              <div key={i}>
+                <p>Face {i + 1}</p>
+                <p>X: {face?.descriptor.detection.box.x}</p>
+                <p>Y: {face?.descriptor.detection.box.y}</p>
+                <p>Width: {face?.descriptor.detection.box.width}</p>
+                <p>Height: {face?.descriptor.detection.box.height}</p>
+                <p>
+                  Expression:{expressionFinal?.expression}{" "}
+                  {expressionFinal?.highestvalue}%
+                </p>
+              </div>
+            );
+          })}
         </div>
       )}
       <h4
@@ -455,7 +472,7 @@ const MultipleImageUpload = () => {
         {message}
       </h4>
 
-      {result.map((img, index) => (
+      {result?.map((img, index) => (
         <div
           key={`result_${index}`}
           style={{
@@ -472,16 +489,17 @@ const MultipleImageUpload = () => {
             onLoad={() =>
               handleFaceDetection(
                 img?.image,
-                dynamicCanvasRefs[index],
+                dynamicCanvasRefs.current[index],
                 index,
                 false
               )
             }
           />
-          <canvas ref={dynamicCanvasRefs[index]} />
+          <canvas ref={(el) => (dynamicCanvasRefs.current[index] = el)} />
         </div>
       ))}
-      {/* <canvas ref={canvasRef} /> */}
+      {message ? <h4>Closest Match</h4> : null}
+      <canvas ref={canvasRef} />
     </Container>
   );
 };
