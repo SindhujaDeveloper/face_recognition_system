@@ -33,17 +33,14 @@ type FaceExpressions = {
   surprised: number;
 };
 
-const MultipleImageUpload = () => {
+const MultipleImagesComparison = () => {
   const router = useRouter();
 
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [originalImages, setOriginalImages] = useState<HTMLImageElement[]>([]);
   const [count, setCount] = useState(0);
   const [comparedSrc, setComparedSrc] = useState<HTMLImageElement | null>(null);
-  const [faceExpression, setFaceExpression] = useState<{
-    highestvalue: number;
-    expression: string | undefined;
-  } | null>(null);
+
   const [faces, setFaces] = useState<{ detection: faceapi.FaceDetection }[]>(
     []
   );
@@ -53,7 +50,6 @@ const MultipleImageUpload = () => {
     useState<FaceWithDescriptor[]>([]);
   const [isDisabledFirst, setIsDisabledFirst] = useState(true);
   const [isDisabledSecond, setIsDisabledSecond] = useState(true);
-  const [filteredFaces1, setFilteredFaces1] = useState<any[]>([]);
   const [result, setResult] = useState<any[]>();
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -168,8 +164,6 @@ const MultipleImageUpload = () => {
             ? canvasRefs
             : canvasRef?.current
           : null;
-
-      // const canvas = typeof window !== "undefined" ? canvasRefs : null;
 
       if (canvas && imageElement) {
         canvas.width = imageElement.width;
@@ -302,7 +296,7 @@ const MultipleImageUpload = () => {
                   .withFaceExpressions();
                 handleExpressionDetection(faceExpression);
               }
-              return matchedOriginal; // Return the result of each async operation
+              return matchedOriginal;
             })
           );
           setMessage("Find A Match");
@@ -504,4 +498,4 @@ const MultipleImageUpload = () => {
   );
 };
 
-export default MultipleImageUpload;
+export default MultipleImagesComparison;
