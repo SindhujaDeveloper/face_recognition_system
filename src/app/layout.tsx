@@ -25,7 +25,7 @@ export default function RootLayout({
         />
         <meta
           name="keywords"
-          content="face comparision online for free, face comparision, happy face sad face comparision, face comparision software,face expession detector, human face comparision"
+          content="face comparison,face comparision online for free, face comparision, happy face sad face comparision, face comparision software,face expession detector, human face comparision"
         />
         <meta
           name="google-site-verification"
