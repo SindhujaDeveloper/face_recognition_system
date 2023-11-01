@@ -24,6 +24,7 @@ const Page = () => {
   const originalFaceRef = useRef<HTMLImageElement | null>(null);
   const originalInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const loadModels = async () => {
@@ -35,139 +36,147 @@ const Page = () => {
     loadModels();
   }, []);
 
-  useEffect(() => {
-    if (videoRef.current) {
-      handleFaceDetection(videoRef.current);
-    }
-  }, [videoRef]);
-
-  const startVideo = () => {
-    if (!navigator.mediaDevices) {
-      console.error("mediaDevices not supported");
-      return;
-    }
-
-    navigator.mediaDevices
-      .getUserMedia({
+  const startVideo = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: false,
-      })
-      .then((stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play();
-            snap();
-          };
-        }
-      })
-      .catch(function (err) {
-        console.log(err);
       });
-  };
 
-  const snap = useCallback(() => {
-    if (videoRef.current && canvasRef.current) {
-      canvasRef.current.width = videoRef.current.videoWidth;
-      canvasRef.current.height = videoRef.current.videoHeight;
-      const context = canvasRef.current.getContext("2d");
-      context?.drawImage(videoRef.current, 0, 0);
-    }
-  }, []);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
 
-  const customDrawImage = (canvas: HTMLCanvasElement, detections: any) => {
-    if (canvas && videoRef.current) {
-      const context = canvas.getContext("2d");
-      context?.drawImage(videoRef.current, 0, 0);
-      faceapi.draw.drawDetections(canvas, detections);
-      faceapi.draw.drawFaceLandmarks(canvas, detections);
-    }
-  };
-
-  const handleFaceDetection = async (video: any) => {
-    if (video) {
-      video.onplay = async () => {
-        const faceDetector = new faceapi.TinyFaceDetectorOptions({
-          inputSize: 512,
-          scoreThreshold: 0.5,
+        videoRef.current.addEventListener("play", async () => {
+          setInterval(async () => {
+            await handleFaceDetection();
+          }, 1);
         });
+      }
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+    }
+  };
 
-        const detections = await faceapi
-          .detectAllFaces(video, faceDetector)
-          .withFaceLandmarks()
-          .withFaceDescriptors()
-          .withFaceExpressions();
-        if (canvasRef.current) {
-          const displaySize = {
-            width: canvasRef.current.width,
-            height: canvasRef.current.height,
-          };
+  // const snap = () => {
+  //   if (videoRef.current && liveCanvasRef.current) {
+  //     const context = liveCanvasRef.current.getContext("2d");
+  //     context?.clearRect(
+  //       0,
+  //       0,
+  //       liveCanvasRef.current.width,
+  //       liveCanvasRef.current.height
+  //     );
+  //     context?.drawImage(
+  //       videoRef.current,
+  //       0,
+  //       0,
+  //       liveCanvasRef.current.width,
+  //       liveCanvasRef.current.height
+  //     );
+  //   }
+  // };
 
-          faceapi.matchDimensions(canvasRef.current, displaySize);
-          customDrawImage(canvasRef.current, detections);
-          setResults(detections);
-        }
-      };
-      return results;
+  // const snap = useCallback(() => {
+  //   if (videoRef.current && canvasRef.current) {
+  //     canvasRef.current.width = videoRef.current.videoWidth;
+  //     canvasRef.current.height = videoRef.current.videoHeight;
+  //     const context = canvasRef.current.getContext("2d");
+  //     context?.drawImage(videoRef.current, 0, 0);
+  //   }
+  // }, []);
+
+  // const customDrawImage = (canvas: HTMLCanvasElement, detections: any) => {
+  //   if (canvas && videoRef.current) {
+  //     const context = canvas.getContext("2d");
+  //     context?.drawImage(videoRef.current, 0, 0);
+  //     faceapi.draw.drawDetections(canvas, detections);
+  //     faceapi.draw.drawFaceLandmarks(canvas, detections);
+  //   }
+  // };
+
+  const handleFaceDetection = async () => {
+    if (videoRef.current && liveCanvasRef.current) {
+      const faceDetector = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 512,
+        scoreThreshold: 0.5,
+      });
+
+      const detections = await faceapi
+        .detectAllFaces(videoRef.current, faceDetector)
+        .withFaceLandmarks()
+        .withFaceDescriptors()
+        .withFaceExpressions();
+
+      if (liveCanvasRef.current) {
+        const displaySize = {
+          width: 500,
+          height: 600,
+        };
+
+        faceapi.matchDimensions(liveCanvasRef.current, displaySize);
+
+        liveCanvasRef.current
+          .getContext("2d")
+          ?.clearRect(
+            0,
+            0,
+            liveCanvasRef.current.width,
+            liveCanvasRef.current.height
+          );
+
+        faceapi.draw.drawDetections(liveCanvasRef.current, detections);
+        faceapi.draw.drawFaceLandmarks(liveCanvasRef.current, detections);
+
+        setResults(detections);
+      }
     }
   };
 
   const handleCompareTwoFaces = async () => {
-    await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
-    await faceapi.nets.faceLandmark68Net.loadFromUri("/models");
-    await faceapi.nets.faceRecognitionNet.loadFromUri("/models");
-    if (videoRef.current) {
-      if (originalFaceRef.current && canvasRef.current) {
-        const faces = await handleFaceDetection(
-          canvasRef.current.getContext("2d")
-        );
+    if (originalFaceRef.current && results.length > 0) {
+      const comparedFace = await faceapi
+        .detectSingleFace(
+          originalFaceRef.current,
+          new faceapi.TinyFaceDetectorOptions()
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptor();
 
-        console.log(faces, "faces");
-        const comparedFace = await faceapi
-          .detectSingleFace(
-            originalFaceRef.current,
-            new faceapi.TinyFaceDetectorOptions()
-          )
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+      if (comparedFace) {
+        const distances = results.map((face: any) => {
+          const distance = faceapi.euclideanDistance(
+            face.descriptor,
+            comparedFace.descriptor
+          );
+          return distance;
+        });
 
-        if (faces && comparedFace) {
-          return faces?.map((it: any) => {
-            const distance = faceapi.euclideanDistance(
-              it?.descriptor,
-              comparedFace.descriptor
-            );
-            let dummy = "";
-            if (distance <= 0.5 && videoRef.current) {
-              handleFaceDetection(videoRef.current);
-              dummy = "Find A Match";
-              setMessage(dummy);
-            } else {
-              if (canvasRef.current) {
-                canvasRef.current.width = 0;
-                canvasRef.current.height = 0;
-              }
-              if (dummy !== "Find A Match") {
-                dummy = "There is no match";
-              }
-              setMessage(dummy);
-              return faces;
-            }
-          });
+        const isMatch = distances.some((distance) => distance <= 0.5);
+
+        if (isMatch) {
+          setMessage("Found a match");
+        } else {
+          setMessage("No match found");
         }
       }
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const imgFile = e.target.files?.[0];
-    if (imgFile) {
-      const img = await faceapi.bufferToImage(imgFile);
-      if (originalFaceRef.current) {
-        originalFaceRef.current.src = img.src;
-      }
+    if (imgFile && originalFaceRef.current) {
+      originalFaceRef.current.src = URL.createObjectURL(imgFile);
     }
   };
+
+  useEffect(() => {
+    const animateVideo = () => {
+      requestAnimationFrame(animateVideo);
+      handleFaceDetection();
+    };
+    animateVideo();
+  }, []);
 
   const formatPercentage = (value: number): number => {
     return Number((value * 100).toFixed(0));
@@ -216,9 +225,7 @@ const Page = () => {
           className="d-none"
           style={{ marginTop: "30px" }}
           accept=".jpg,.png,.jpeg"
-          onChange={(e) => {
-            handleImageUpload(e);
-          }}
+          onChange={(e) => handleImageUpload(e)}
         />
         <button
           onClick={() => {
@@ -231,7 +238,7 @@ const Page = () => {
           Upload
         </button>
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
-          <img ref={originalFaceRef} id="original" src="" />
+          <img ref={originalFaceRef} id="original" src="" alt="Original" />
         </div>
       </div>
       <Button
@@ -257,16 +264,16 @@ const Page = () => {
         Back
       </Button>
       <div id="video-container" className="video-container">
-        <video
-          ref={videoRef}
-          id="video"
-          autoPlay
-          muted
-          // width="500"
-          // height="500"
-        ></video>
+        <canvas
+          ref={liveCanvasRef}
+          id="liveCanvas"
+          style={{
+            position: "absolute",
+            background: "transparent",
+          }}
+        ></canvas>
+        <video ref={videoRef} id="video" autoPlay muted></video>
       </div>
-      {canvasRef.current?.getContext("2d") && <h3>The Result Image</h3>}
       {results.length > 0 && (
         <div style={{ marginTop: "30px", marginBottom: "30px" }}>
           {results.map((face, i) => {
@@ -285,9 +292,6 @@ const Page = () => {
         </div>
       )}
       <h4>{message}</h4>
-      <div style={{ top: 0 }}>
-        <canvas ref={canvasRef} id="canvas"></canvas>
-      </div>
     </Container>
   );
 };
